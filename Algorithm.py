@@ -225,7 +225,7 @@ def get_subspecialty_scores(description):
 
     return pd.DataFrame({"Subspecialty": column1, "Score":column2}).sort_values("Score", ascending=False).set_index("Subspecialty", drop=True)
 
-def get_sorted_specialists(specialists, description, languages):
+def get_sorted_specialists(specialists, description, languages="English"):
     mask = specialists["languages"].apply(
         lambda x: any(lang.strip().lower() in x.lower() for lang in languages.split(" "))
     )
