@@ -1,6 +1,9 @@
 import flet as ft
 import Algorithm as algo
+from BackEnd import message_condenser, unpack_message, doctor_matching
+import uuid
 
+cases = [] #This list will store all the help cases.
 
 
 def main(page: ft.Page):
@@ -23,6 +26,9 @@ def main(page: ft.Page):
         "languages": [],
         "available": True  # This is the default value
     }
+    global new_cases
+    new_cases = []  # Store new cases to be shown to international doctors
+
   
     global profile_edit_mode
     profile_edit_mode = False
@@ -192,6 +198,64 @@ def main(page: ft.Page):
 
         return controls
 
+    def send_help_request(message):
+        condensed = message_condenser(message)
+        unpacked = unpack_message(condensed)
+        matched = doctor_matching(unpacked)
+
+        case = {
+            "id": str(uuid.uuid4()),
+            "message": message,
+            "status": "pending",
+            "sender": "gazan",
+            "receivers": [doc["first_name"] for doc in matched],
+            "accepted_by": None
+        }
+        cases.append(case)
+
+
+    def get_pending_cases():
+        return [c for c in cases if c["sender"] == "gazan" and c["status"] == "pending"]
+
+
+    def get_new_cases(doctor_name):
+        return [c for c in cases if doctor_name in c["receivers"] and c["status"] == "pending"]
+
+
+    def get_current_cases(doctor_name):
+        return [c for c in cases if c["accepted_by"] == doctor_name]
+
+
+    def accept_case(case_id, doctor_name):
+        for case in cases:
+            if case["id"] == case_id:
+                case["status"] = "accepted"
+                case["accepted_by"] = doctor_name
+
+
+    def handle_case_popup(case):
+        def on_accept(e):
+            accept_case(case["id"], user_profile["username"])
+            page.go("/international_main")
+            
+
+        def on_decline(e):
+            page.go("/international_main")
+
+        page.views.append(
+            ft.View(
+                "/new_case_popup",
+                controls=[
+                    ft.AppBar(title=ft.Text("New Case")),
+                    ft.Text(case["message"]),
+                    ft.Row([
+                        ft.ElevatedButton("Accept", on_click=on_accept),
+                        ft.OutlinedButton("Decline", on_click=on_decline),
+                    ])
+                ]
+            )
+        )
+        page.update()
 
 
 
@@ -334,13 +398,15 @@ def main(page: ft.Page):
                         ft.Tab(
                             text="Current Cases",
                             content=ft.Column([
-                                ft.ListTile(title=ft.Text("Case A"), on_click=lambda e: page.go("/chat"))
+                                ft.ListTile(title=ft.Text(c["message"]), on_click=lambda e: page.go("/chat"))
+                                for c in get_current_cases(user_profile["username"])
                             ])
                         ),
                         ft.Tab(
                             text="New Cases",
                             content=ft.Column([
-                                ft.ListTile(title=ft.Text("Case B - New"), on_click=lambda e: page.go("/new_case_popup"))
+                                ft.ListTile(title=ft.Text(c["message"]), on_click=lambda e, c=c: handle_case_popup(c))
+                                for c in get_new_cases(user_profile["username"])
                             ])
                         ),
                     ]
@@ -369,9 +435,13 @@ def main(page: ft.Page):
                         ft.Tab(text="Current Cases", content=ft.Column([
                             ft.ListTile(title=ft.Text("Doctor Smith"), on_click=lambda e: page.go("/chat"))
                         ])),
-                        ft.Tab(text="Pending Cases", content=ft.Column([
-                            ft.ListTile(title=ft.Text("New Pending Case"), on_click=lambda e: page.go("/chat"))
-                        ])),
+                        ft.Tab(
+                            text="Pending Cases",
+                            content=ft.Column([
+                                ft.ListTile(title=ft.Text(c["message"]), on_click=lambda e, cid=c["id"]: page.go("/chat"))
+                                for c in get_pending_cases()
+                            ])
+                        ),
                     ]
                 )
             ]
@@ -396,11 +466,13 @@ def main(page: ft.Page):
         )
 
     def new_case_popup_view():
+        last_case = new_cases[-1] if new_cases else {"details": "No case data available."}
+
         return ft.View(
             "/new_case_popup",
             controls=[
                 ft.AppBar(title=ft.Text("New Case"), leading=ft.IconButton(ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/international_main"))),
-                ft.Text("Details about this case"),
+                ft.Text(last_case["details"]),
                 ft.Row([
                     ft.ElevatedButton("Accept", on_click=lambda e: page.go("/chat")),
                     ft.OutlinedButton("Decline", on_click=lambda e: page.go("/international_main")),
@@ -408,16 +480,26 @@ def main(page: ft.Page):
             ]
         )
 
+    
     def help_request_view():
+        help_input = ft.TextField(label="Your message", multiline=True)
+
+        def send_message(e):
+            message = help_input.value.strip()
+            if message:
+                send_help_request(message)
+                page.go("/gazan_main")
+
         return ft.View(
             "/help_request",
             controls=[
                 ft.AppBar(title=ft.Text("Help Request")),
                 ft.Text("Type or record your help request"),
-                ft.TextField(label="Your message"),
-                ft.ElevatedButton("Send", on_click=lambda e: page.go("/gazan_main")),
+                help_input,
+                ft.ElevatedButton("Send", on_click=send_message),
             ]
         )
+
 
     def connect_device_view():
         return ft.View(
