@@ -2,6 +2,7 @@ import flet as ft
 import Algorithm as algo
 from BackEnd import message_condenser, unpack_message, doctor_matching
 import uuid
+import time
 
 cases = [] #This list will store all the help cases.
 
@@ -285,7 +286,8 @@ def main(page: ft.Page):
         return ft.View(
             "/",
             controls=[
-                ft.Text("Welcome! Select your role:", size=24, weight="bold"),
+                ft.Text("Welcome to Healix!", size=30, weight="bold"),
+                ft.Text("Select your role:", size=24, weight="bold"),
                 ft.ElevatedButton("International Doctor", on_click=lambda e: set_user_type_and_go("international", "/login")),
                 ft.ElevatedButton("Gazan Doctor", on_click=lambda e: set_user_type_and_go("gazan", "/gazan_main")),
             ],
@@ -446,7 +448,23 @@ def main(page: ft.Page):
                         ft.IconButton(ft.Icons.LOGOUT, tooltip="Log out", on_click=lambda e: page.go("/"))
                     ]
                 ),
-                ft.ElevatedButton("Help Request", on_click=lambda e: page.go("/help_request")),
+                ft.Container(
+                    alignment=ft.alignment.bottom_center,
+                    padding=20,
+                    content=ft.ElevatedButton(
+                        text="Help Request",
+                        bgcolor="red",
+                        color="white",
+                        width=page.width,  # makes it span full width
+                        height=50,
+                        on_click=lambda e: page.go("/help_request"),  # your existing function
+                        style=ft.ButtonStyle(
+                            shape=ft.RoundedRectangleBorder(radius=8)
+                        )
+                    )
+                ),
+
+                #ft.ElevatedButton("Help Request", on_click=lambda e: page.go("/help_request")),
                 ft.ElevatedButton("Connect Device", on_click=lambda e: page.go("/connect_device")),
                 ft.Tabs(
                     selected_index=0,
@@ -519,18 +537,129 @@ def main(page: ft.Page):
                 ft.ElevatedButton("Send", on_click=send_message),
             ]
         )
-
-
+    
     def connect_device_view():
+        devices = ["LoRa-Device-1", "LoRa-Device-2", "LoRa-Device-3"]
+        device_list = ft.Column()
+        lora_enabled = ft.Switch(value=True)
+
+        info_panel = ft.Container(
+            bgcolor="blue50",
+            border_radius=10,
+            padding=20,
+            content=ft.Column([
+                # Centered content block
+                ft.Column([
+                    ft.Image(
+                        src="loraIcon.png",  # <- use the file ID Flet recognizes
+                        width=80,
+                        height=80,
+                        fit=ft.ImageFit.CONTAIN
+                    ),
+                    ft.Text("Set Up Your Off-the-Grid Communication", size=20, weight="bold", text_align="center"),
+                    ft.Text(
+                        "Connect to devices using long-range, low-power LoRa technology for reliable communication in remote areas.",
+                        text_align="center",
+                        size=14
+                    )
+                ], alignment="center", horizontal_alignment="center"),
+                
+                ft.Divider(height=20, color="transparent"),
+
+                # Toggle row (not centered)
+                ft.Row(
+                    alignment="spaceBetween",
+                    controls=[
+                        ft.Text("Connect via Bluetooth", size=16),
+                        ft.Switch(value=True)
+                    ]
+                )
+            ])
+        )
+
+
+        '''
+        info_panel = ft.Container(
+            bgcolor="blue50",
+            padding=15,
+            border_radius=10,
+            content=ft.Row(
+                controls=[
+                    ft.Image(
+                        src="loraIcon.png",  # Use your LoRa icon path here
+                        width=40,
+                        height=40,
+                        fit=ft.ImageFit.CONTAIN
+                    ),
+                    ft.Container(
+                        content=ft.Text(
+                            "Enable LoRa to search for nearby medical relay devices.",
+                            size=14
+                        ),
+                        expand=True
+                    ),
+                    lora_enabled
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN
+            )
+        )
+        '''
+
+        # Device list logic
+        for device_name in devices:
+            status_text = ft.Text("Not Connected", color="red")
+            
+            loading = ft.ProgressRing(visible=False, width=16, height=16)
+
+            def on_click(e, name=device_name, status=status_text, loader=loading):
+                loader.visible = True
+                status.value = "Connecting..."
+                status.color = "grey"
+                page.update()
+
+                import time
+                time.sleep(1)
+
+                loader.visible = False
+                status.value = "Connected"
+                status.color = "blue800"
+                page.update()
+
+            tile = ft.Container(
+                content=ft.ListTile(
+                    title=ft.Text(device_name),
+                    subtitle=status_text,
+                    trailing=loading,
+                    on_click=on_click
+                ),
+                bgcolor="white",
+                border=ft.border.all(1, "grey300"),
+                border_radius=5,
+                padding=10
+            )
+            device_list.controls.append(tile)
+
         return ft.View(
             "/connect_device",
             controls=[
-                ft.AppBar(title=ft.Text("Connect Device"), leading=ft.IconButton(ft.Icons.ARROW_BACK, on_click=lambda e: page.go("/gazan_main"))),
-                ft.Text("LoRa Connection Interface (To be implemented)"),
-                ft.ElevatedButton("Scan Devices"),
-                ft.Text("Connected: No"),
+                ft.AppBar(
+                    title=ft.Text("Connect to Device"),
+                    leading=ft.IconButton(
+                        icon=ft.Icons.ARROW_BACK,
+                        on_click=lambda e: page.go("/gazan_main")  # or whatever page you want to go back to
+                    )
+                ),
+                ft.Container(
+                    padding=20,
+                    content=ft.Column([
+                        info_panel,
+                        ft.Text("Available Devices", size=16, weight="bold"),
+                        device_list
+                    ])
+                )
             ]
         )
+
 
 ft.app(target=main, view=ft.FLET_APP)
 
