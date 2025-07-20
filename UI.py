@@ -217,30 +217,47 @@ def main(page: ft.Page):
     def get_pending_cases():
         return [c for c in cases if c["sender"] == "gazan" and c["status"] == "pending"]
 
-
     def get_new_cases(doctor_name):
         return [c for c in cases if doctor_name in c["receivers"] and c["status"] == "pending"]
+    
+
+    def get_current_cases(username):
+        return [c for c in cases if c["status"] == "current" and c["assigned_doctor"] == username]
+
+    def decline_case(case_id, doctor_username):
+        for c in cases:
+            if c["id"] == case_id and doctor_username in c["receivers"]:
+                c["receivers"].remove(doctor_username)
+                print(f"[Decline] {doctor_username} declined case {case_id}")
+                break
 
 
-    def get_current_cases(doctor_name):
-        return [c for c in cases if c["accepted_by"] == doctor_name]
+    def accept_case(case_id, username):
+        print("[Action] Accepting case...")
 
-
-    def accept_case(case_id, doctor_name):
-        for case in cases:
-            if case["id"] == case_id:
-                case["status"] = "accepted"
-                case["accepted_by"] = doctor_name
+        # Update the global case status and assign the doctor
+        for c in cases:
+            if c["id"] == case_id:
+                c["status"] = "current"
+                c["assigned_doctor"] = username
+                print(f"[Update] Case {case_id} now assigned to {username} with status 'current'")
+                break
 
 
     def handle_case_popup(case):
         def on_accept(e):
             accept_case(case["id"], user_profile["username"])
-            page.go("/international_main")
-            
+            page.views.pop()
+            page.views.clear()  # clear old views
+            page.views.append(international_main_view())  # rebuild main page
+            page.go("/international_main")  # navigate there
 
         def on_decline(e):
-            page.go("/international_main")
+            decline_case(case["id"], user_profile["username"])
+            page.views.pop()  # Go back one view
+            page.views.clear()  # clear old views
+            page.views.append(international_main_view())  # rebuild main page
+            page.go("/international_main")  # Rebuilds the view
 
         page.views.append(
             ft.View(
@@ -257,6 +274,8 @@ def main(page: ft.Page):
         )
         page.update()
 
+    def get_current_cases_gazan():
+        return [c for c in cases if c["sender"] == "gazan" and c["status"] == "current"]
 
 
 
@@ -433,7 +452,8 @@ def main(page: ft.Page):
                     selected_index=0,
                     tabs=[
                         ft.Tab(text="Current Cases", content=ft.Column([
-                            ft.ListTile(title=ft.Text("Doctor Smith"), on_click=lambda e: page.go("/chat"))
+                            ft.ListTile(title=ft.Text(c["message"]), on_click=lambda e, c=c: page.go("/chat"))
+                            for c in get_current_cases_gazan()
                         ])),
                         ft.Tab(
                             text="Pending Cases",
